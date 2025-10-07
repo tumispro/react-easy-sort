@@ -1,7 +1,7 @@
 import arrayMove from 'array-move'
 import React, { HTMLAttributes } from 'react'
 
-import { findItemIndexAtPosition } from './helpers'
+import { findItemIndexAtPosition, getScrollableParent } from './helpers'
 import { useDrag, useDropTarget } from './hooks'
 import { Point } from './types'
 
@@ -77,38 +77,12 @@ const SortableList = <TTag extends keyof JSX.IntrinsicElements = typeof DEFAULT_
   const sourceOpacityRef = React.useRef<string>('1')
   // contains the speed at which the container scroll when auto scrolling
   const scrollSpeedRef = React.useRef<number>(0)
-  // contains the speed at which the container scroll when auto scrolling
+  // contains the auto scroll animation
   const scrollAnimationRef = React.useRef<number | null>(null)
   // contains the scrollable list parent (element or window)
   const scrollContainerRef = React.useRef<HTMLElement | Window | null>(null)
   // contains the scroll position of the container
   const initialScrollTopRef = React.useRef<number>(0)
-
-  /**
-   * Finds the first scrollable parent of an element.
-   * @param {HTMLElement} element The element to start searching from.
-   * @returns {HTMLElement | Window} The scrollable parent or the window.
-   */
-  const getScrollableParent = (element: HTMLElement | null): HTMLElement | Window => {
-    if (!element) {
-      return window
-    }
-
-    let current: HTMLElement | null = element
-
-    while (current) {
-      const { overflow, overflowY } = window.getComputedStyle(current)
-      if (
-        (overflow === 'auto' || overflow === 'scroll' || overflowY === 'auto' || overflowY === 'scroll') &&
-        current.scrollHeight > current.clientHeight
-      ) {
-        return current
-      }
-      current = current.parentElement
-    }
-
-    return window
-  }
 
   // auto scroll method
   const autoScrolling = React.useCallback(() => {
@@ -201,11 +175,11 @@ const SortableList = <TTag extends keyof JSX.IntrinsicElements = typeof DEFAULT_
         return
       }
 
-      const scroller = getScrollableParent(containerRef.current)
-      scrollContainerRef.current = scroller
-
       // auto scrolling of the container
       if (autoScroll) {
+        const scroller = getScrollableParent(containerRef.current)
+        scrollContainerRef.current = scroller
+
         // record the starting scroll position to calculate the scroll delta later
         if (scroller instanceof HTMLElement) {
           initialScrollTopRef.current = scroller.scrollTop
@@ -368,8 +342,6 @@ const SortableList = <TTag extends keyof JSX.IntrinsicElements = typeof DEFAULT_
       dropTargetLogic.setPosition?.(lastTargetIndexRef.current, itemsRect.current, lockAxis)
     },
     onEnd: () => {
-      const scroller = scrollContainerRef.current
-
       // reset auto scroll variables
       if (autoScroll) {
         // reset the ref that holds the scrollable container

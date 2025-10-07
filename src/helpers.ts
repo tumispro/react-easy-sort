@@ -31,3 +31,29 @@ export const findItemIndexAtPosition = (
   }
   return smallestDistanceIndex
 }
+
+/**
+ * Finds the first scrollable parent of an element.
+ * @param {HTMLElement} element The element to start searching from.
+ * @returns {HTMLElement | Window} The scrollable parent or the window.
+ */
+export const getScrollableParent = (element: HTMLElement | null): HTMLElement | Window => {
+  if (!element) {
+    return window
+  }
+
+  let current: HTMLElement | null = element
+
+  while (current) {
+    const { overflow, overflowY } = window.getComputedStyle(current)
+    if (
+      (overflow === 'auto' || overflow === 'scroll' || overflowY === 'auto' || overflowY === 'scroll') &&
+      current.scrollHeight > current.clientHeight
+    ) {
+      return current
+    }
+    current = current.parentElement
+  }
+
+  return window
+}
