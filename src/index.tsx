@@ -83,8 +83,6 @@ const SortableList = <TTag extends keyof JSX.IntrinsicElements = typeof DEFAULT_
   const scrollContainerRef = React.useRef<HTMLElement | Window | null>(null)
   // contains the scroll position of the container
   const initialScrollTopRef = React.useRef<number>(0)
-  // contains the original overflow behaviour of the container, in order to prevent browser scrolling
-  const originalOverflowRef = React.useRef<string>('')
 
   /**
    * Finds the first scrollable parent of an element.
@@ -213,15 +211,6 @@ const SortableList = <TTag extends keyof JSX.IntrinsicElements = typeof DEFAULT_
           initialScrollTopRef.current = scroller.scrollTop
         } else {
           initialScrollTopRef.current = scroller.scrollY
-        }
-      } else {
-        // prevent default scroll behaviour if auto scrolling is disabled
-        if (scroller instanceof Window) {
-          originalOverflowRef.current = document.body.style.overflow
-          document.body.style.overflow = 'hidden'
-        } else if (scroller instanceof HTMLElement) {
-          originalOverflowRef.current = scroller.style.overflow
-          scroller.style.overflow = 'hidden'
         }
       }
 
@@ -392,14 +381,6 @@ const SortableList = <TTag extends keyof JSX.IntrinsicElements = typeof DEFAULT_
           cancelAnimationFrame(scrollAnimationRef.current)
           scrollAnimationRef.current = null
         }
-      } else {
-        // restore default browser scroll behaviour if auto scrolling is disabled
-        if (scroller instanceof Window) {
-          document.body.style.overflow = originalOverflowRef.current
-        } else if (scroller instanceof HTMLElement) {
-          scroller.style.overflow = originalOverflowRef.current
-        }
-        originalOverflowRef.current = ''
       }
 
       // we reset all items translations (the parent is expected to sort the items in the onSortEnd callback)
