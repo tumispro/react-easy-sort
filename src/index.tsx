@@ -236,7 +236,7 @@ const SortableList = <TTag extends keyof JSX.IntrinsicElements = typeof DEFAULT_
       // saving the index of the item being dragged
       sourceIndexRef.current = sourceIndex
 
-      // let the parent component know that a sorting gesture has started
+      // let the parent know that sort started
       if (onSortStart) {
         onSortStart()
       }
@@ -244,7 +244,7 @@ const SortableList = <TTag extends keyof JSX.IntrinsicElements = typeof DEFAULT_
       // the item being dragged is copied to the document body and will be used as the target
       copyItem(sourceIndex)
 
-      // hide source during the drag gesture
+      // hide source during the drag gesture (and store original opacity)
       const source = itemsRef.current[sourceIndex]
       sourceOpacityRef.current = source.style.opacity ?? '1'
       source.style.opacity = '0'
