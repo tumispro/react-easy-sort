@@ -45,13 +45,23 @@ export const getScrollableParent = (element: HTMLElement | null): HTMLElement | 
   let current: HTMLElement | null = element
 
   while (current) {
-    const { overflow, overflowY } = window.getComputedStyle(current)
-    if (
-      (overflow === 'auto' || overflow === 'scroll' || overflowY === 'auto' || overflowY === 'scroll') &&
+    const { overflowX, overflowY } = window.getComputedStyle(current)
+
+    // check if the element is horizontally scrollable
+    const isHorizontallyScrollable =
+      (overflowX === 'auto' || overflowX === 'scroll') &&
+      current.scrollWidth > current.clientWidth
+
+    // check if the element is vertically scrollable
+    const isVerticallyScrollable =
+      (overflowY === 'auto' || overflowY === 'scroll') &&
       current.scrollHeight > current.clientHeight
-    ) {
+
+    // if it's scrollable in either direction it's a match
+    if (isHorizontallyScrollable || isVerticallyScrollable) {
       return current
     }
+
     current = current.parentElement
   }
 
