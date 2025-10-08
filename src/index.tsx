@@ -75,19 +75,21 @@ const SortableList = <TTag extends keyof JSX.IntrinsicElements = typeof DEFAULT_
   const dropTargetLogic = useDropTarget(dropTarget)
   // contains the original opacity of the sorted item in order te restore it correctly
   const sourceOpacityRef = React.useRef<string>('1')
-  // contains the speed at which the container scroll when auto scrolling
-  const scrollSpeedRef = React.useRef<number>(0)
+  // contains the speed at which the container scrolls horizontally or vertically when auto scrolling
+  const scrollSpeedRef = React.useRef<Point>({ x: 0, y: 0 })
   // contains the auto scroll animation
   const scrollAnimationRef = React.useRef<number | null>(null)
   // contains the scrollable list parent (element or window)
   const scrollContainerRef = React.useRef<HTMLElement | Window | null>(null)
-  // contains the scroll position of the container
-  const initialScrollTopRef = React.useRef<number>(0)
+  // contains the horizontal and vertical scroll positions of the container
+  const initialScrollRef = React.useRef<Point>({ x: 0, y: 0 })
 
   // auto scroll method
   const autoScrolling = React.useCallback(() => {
     const scroller = scrollContainerRef.current
-    if (scrollSpeedRef.current === 0 || !scroller) {
+    const scrollSpeed = scrollSpeedRef.current
+
+    if ((scrollSpeed.x === 0 && scrollSpeed.y === 0) || !scroller) {
       if (scrollAnimationRef.current) {
         cancelAnimationFrame(scrollAnimationRef.current)
         scrollAnimationRef.current = null
@@ -97,9 +99,10 @@ const SortableList = <TTag extends keyof JSX.IntrinsicElements = typeof DEFAULT_
 
     // handle both window and element scrolling
     if (scroller instanceof Window) {
-      scroller.scrollBy(0, scrollSpeedRef.current)
+      scroller.scrollBy(scrollSpeed.x, scrollSpeed.y)
     } else if (scroller instanceof HTMLElement) {
-      scroller.scrollTop += scrollSpeedRef.current
+      scroller.scrollTop += scrollSpeed.y
+      scroller.scrollLeft += scrollSpeed.x
     }
 
     scrollAnimationRef.current = requestAnimationFrame(autoScrolling)
@@ -181,10 +184,11 @@ const SortableList = <TTag extends keyof JSX.IntrinsicElements = typeof DEFAULT_
         scrollContainerRef.current = scroller
 
         // record the starting scroll position to calculate the scroll delta later
+        // record the starting scroll position for both axes
         if (scroller instanceof HTMLElement) {
-          initialScrollTopRef.current = scroller.scrollTop
+          initialScrollRef.current = { y: scroller.scrollTop, x: scroller.scrollLeft }
         } else {
-          initialScrollTopRef.current = scroller.scrollY
+          initialScrollRef.current = { y: scroller.scrollY, x: scroller.scrollX }
         }
       }
 
@@ -238,14 +242,9 @@ const SortableList = <TTag extends keyof JSX.IntrinsicElements = typeof DEFAULT_
 
       const sourceIndex = sourceIndexRef.current
       // if there is no source, we exit early (happened when drag gesture was started outside a SortableItem)
-      if (sourceIndex === undefined || sourceIndexRef.current === undefined) {
+      if (sourceIndex === undefined) {
         return
       }
-
-      // use the cursor's Y position by default for the drop point
-      let targetPointY = lockAxis === 'x'
-        ? itemsRect.current[sourceIndex].top
-        : pointInWindow.y
 
       if (autoScroll) {
         const scroller = scrollContainerRef.current
@@ -253,46 +252,68 @@ const SortableList = <TTag extends keyof JSX.IntrinsicElements = typeof DEFAULT_
           // auto scroll trigger logic point
           const SCROLL_THRESHOLD = 60
           const MAX_SCROLL_SPEED = 15
-          const { y: pointerY } = pointInWindow
+          const { x: pointerX, y: pointerY } = pointInWindow
+
+          // reset speed before recalculating
+          scrollSpeedRef.current = { x: 0, y: 0 }
 
           let scrollerRect
           if (scroller instanceof Window) {
-            scrollerRect = { top: 0, bottom: scroller.innerHeight }
+            scrollerRect = { top: 0, bottom: scroller.innerHeight, left: 0, right: scroller.innerWidth }
           } else {
             scrollerRect = scroller.getBoundingClientRect()
           }
 
-          if (pointerY < scrollerRect.top + SCROLL_THRESHOLD && pointerY >= scrollerRect.top) {
-            const proximity = (scrollerRect.top + SCROLL_THRESHOLD) - pointerY
-            scrollSpeedRef.current = -MAX_SCROLL_SPEED * (proximity / SCROLL_THRESHOLD)
-            if (!scrollAnimationRef.current) {
-              scrollAnimationRef.current = requestAnimationFrame(autoScrolling)
+          // vertical scroll logic (if not locked)
+          if (lockAxis !== 'y') {
+            if (pointerY < scrollerRect.top + SCROLL_THRESHOLD && pointerY >= scrollerRect.top) {
+              const proximity = (scrollerRect.top + SCROLL_THRESHOLD) - pointerY
+              scrollSpeedRef.current.y = -MAX_SCROLL_SPEED * (proximity / SCROLL_THRESHOLD)
+            } else if (pointerY > scrollerRect.bottom - SCROLL_THRESHOLD && pointerY <= scrollerRect.bottom) {
+              const proximity = pointerY - (scrollerRect.bottom - SCROLL_THRESHOLD)
+              scrollSpeedRef.current.y = MAX_SCROLL_SPEED * (proximity / SCROLL_THRESHOLD)
             }
-          } else if (pointerY > scrollerRect.bottom - SCROLL_THRESHOLD && pointerY <= scrollerRect.bottom) {
-            const proximity = pointerY - (scrollerRect.bottom - SCROLL_THRESHOLD)
-            scrollSpeedRef.current = MAX_SCROLL_SPEED * (proximity / SCROLL_THRESHOLD)
-            if (!scrollAnimationRef.current) {
-              scrollAnimationRef.current = requestAnimationFrame(autoScrolling)
-            }
-          } else {
-            scrollSpeedRef.current = 0
           }
 
-          // drop point
-          let scrollDelta = 0
-          if (scroller instanceof HTMLElement) {
-            scrollDelta = scroller.scrollTop - initialScrollTopRef.current
-          } else if (scroller instanceof Window) {
-            scrollDelta = scroller.scrollY - initialScrollTopRef.current
+          // horizontal scroll logic (if not locked)
+          if (lockAxis !== 'x') {
+            if (pointerX < scrollerRect.left + SCROLL_THRESHOLD && pointerX >= scrollerRect.left) {
+              const proximity = (scrollerRect.left + SCROLL_THRESHOLD) - pointerX
+              scrollSpeedRef.current.x = -MAX_SCROLL_SPEED * (proximity / SCROLL_THRESHOLD)
+            } else if (pointerX > scrollerRect.right - SCROLL_THRESHOLD && pointerX <= scrollerRect.right) {
+              const proximity = pointerX - (scrollerRect.right - SCROLL_THRESHOLD)
+              scrollSpeedRef.current.x = MAX_SCROLL_SPEED * (proximity / SCROLL_THRESHOLD)
+            }
           }
-          // apply the scroll delta to our target Y position
-          targetPointY += scrollDelta
+
+          // start animation if speed is not 0
+          if ((scrollSpeedRef.current.x !== 0 || scrollSpeedRef.current.y !== 0) && !scrollAnimationRef.current) {
+            scrollAnimationRef.current = requestAnimationFrame(autoScrolling)
+          }
         }
       }
 
+      // drop-point correction for both axes
+      let scrollDelta = { x: 0, y: 0 }
+      if (autoScroll && scrollContainerRef.current) {
+        const scroller = scrollContainerRef.current
+        if (scroller instanceof HTMLElement) {
+          scrollDelta = {
+            y: scroller.scrollTop - initialScrollRef.current.y,
+            x: scroller.scrollLeft - initialScrollRef.current.x
+          }
+        } else if (scroller instanceof Window) {
+          scrollDelta = {
+            y: scroller.scrollY - initialScrollRef.current.y,
+            x: scroller.scrollX - initialScrollRef.current.x
+          }
+        }
+      }
+
+      const sourceRect = itemsRect.current[sourceIndex]
       const targetPoint: Point = {
-        x: lockAxis === 'y' ? itemsRect.current[sourceIndex].left : pointInWindow.x,
-        y: targetPointY,
+        x: (lockAxis === 'y' ? sourceRect.left : pointInWindow.x) + scrollDelta.x,
+        y: (lockAxis === 'x' ? sourceRect.top : pointInWindow.y) + scrollDelta.y,
       }
 
       const targetIndex = findItemIndexAtPosition(targetPoint, itemsRect.current, {
@@ -346,8 +367,8 @@ const SortableList = <TTag extends keyof JSX.IntrinsicElements = typeof DEFAULT_
       if (autoScroll) {
         // reset the ref that holds the scrollable container
         scrollContainerRef.current = null
-        // immediately stop the scroll speed
-        scrollSpeedRef.current = 0
+        // reset the scroll speed
+        scrollSpeedRef.current = { x: 0, y: 0 }
         // cancel any ongoing animation frame loop
         if (scrollAnimationRef.current) {
           cancelAnimationFrame(scrollAnimationRef.current)
