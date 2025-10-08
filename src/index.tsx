@@ -265,7 +265,7 @@ const SortableList = <TTag extends keyof JSX.IntrinsicElements = typeof DEFAULT_
           }
 
           // vertical scroll logic (if not locked)
-          if (lockAxis !== 'y') {
+          if (lockAxis !== 'x') {
             if (pointerY < scrollerRect.top + SCROLL_THRESHOLD && pointerY >= scrollerRect.top) {
               const proximity = (scrollerRect.top + SCROLL_THRESHOLD) - pointerY
               scrollSpeedRef.current.y = -MAX_SCROLL_SPEED * (proximity / SCROLL_THRESHOLD)
@@ -276,7 +276,7 @@ const SortableList = <TTag extends keyof JSX.IntrinsicElements = typeof DEFAULT_
           }
 
           // horizontal scroll logic (if not locked)
-          if (lockAxis !== 'x') {
+          if (lockAxis !== 'y') {
             if (pointerX < scrollerRect.left + SCROLL_THRESHOLD && pointerX >= scrollerRect.left) {
               const proximity = (scrollerRect.left + SCROLL_THRESHOLD) - pointerX
               scrollSpeedRef.current.x = -MAX_SCROLL_SPEED * (proximity / SCROLL_THRESHOLD)
